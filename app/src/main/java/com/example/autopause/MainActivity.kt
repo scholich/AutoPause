@@ -162,8 +162,8 @@ class AudioRecordTest : AppCompatActivity() {
                 }
 //                Handler().postDelayed(this::getAmplitude, 2000)
             }
-            if (metric < 0.2) {
-                if (thresholdBrokenCount > -3) {
+            if (metric < 1) {
+                if (thresholdBrokenCount > -5) {
                     thresholdBrokenCount -= 1
                 }
 //                Handler().postDelayed(this::getAmplitude, 1000)
@@ -174,7 +174,7 @@ class AudioRecordTest : AppCompatActivity() {
             if (thresholdBrokenCount < 0) {
                 startPlaying()
             }
-            Handler().postDelayed(this::getAmplitude, 200)
+            Handler().postDelayed(this::getAmplitude, 500)
             textVolume?.apply {
 //                text = max.toString()
                 text = metric.toString()
