@@ -21,6 +21,13 @@ import java.io.IOException
 import android.media.AudioRecord
 import android.os.Handler
 import androidx.appcompat.widget.AppCompatTextView
+import android.content.Intent
+import android.media.AudioManager
+import android.view.KeyEvent
+import android.os.SystemClock
+
+
+
 
 
 //import android.widget.ProgressBar
@@ -58,6 +65,7 @@ class AudioRecordTest : AppCompatActivity() {
 
     private var ar: AudioRecord? = null
     private var minSize = 0
+    private var mAudioManager: AudioManager? = null
 
     private var fileName: String = ""
 
@@ -99,36 +107,64 @@ class AudioRecordTest : AppCompatActivity() {
     }
 
     private fun startPlaying() {
-        player = MediaPlayer().apply {
-            try {
-                setDataSource(fileName)
-                prepare()
-                start()
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
-            }
-        }
+        //for play/pause toggle
+        //for play/pause toggle
+//        val i = Intent("com.android.music.musicservicecommand")
+//        i.putExtra("command", "togglepause")
+//        this.sendBroadcast(i)
+        if (mAudioManager == null) mAudioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        val eventDown = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY)
+        mAudioManager?.dispatchMediaKeyEvent(eventDown)
+        val eventUp = KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY)
+        mAudioManager?.dispatchMediaKeyEvent(eventUp)
+//        player = MediaPlayer().apply {
+//            try {
+//                setDataSource(fileName)
+//                prepare()
+//                start()
+//            } catch (e: IOException) {
+//                Log.e(LOG_TAG, "prepare() failed")
+//            }
+//        }
     }
 
     private fun stopPlaying() {
-        player?.release()
-        player = null
+//        val i = Intent("com.android.music.musicservicecommand")
+//        i.putExtra("command", "togglepause")
+//        sendBroadcast(i)
+//        player?.release()
+//        player = null
+        if (mAudioManager == null) mAudioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        val eventDown = KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PAUSE)
+        mAudioManager?.dispatchMediaKeyEvent(eventDown)
+        val eventUp = KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PAUSE)
+        mAudioManager?.dispatchMediaKeyEvent(eventUp)
     }
 
     fun getAmplitude(): Double {
+        val bufferSize = 8000 * 5
         if (ar != null) {
-            val buffer = ShortArray(minSize)
-            ar!!.read(buffer, 0, minSize)
+            val buffer = ShortArray(bufferSize)
+            ar!!.read(buffer, 0, bufferSize, AudioRecord.READ_NON_BLOCKING)
             var max = 0
+            var sum = 0
             for (s in buffer) {
                 if (Math.abs(s.toInt()) > max) {
                     max = Math.abs(s.toInt())
                 }
+                sum += Math.abs(s.toInt())
             }
             println(max.toDouble())
-            Handler().postDelayed(this::getAmplitude, 200)
+            if (sum.toDouble() / bufferSize > 50) {
+                stopPlaying()
+                Handler().postDelayed(this::getAmplitude, 2000)
+            } else {
+                startPlaying()
+                Handler().postDelayed(this::getAmplitude, 1000)
+            }
             textVolume?.apply {
-                text = max.toString()
+//                text = max.toString()
+                text = (sum.toDouble() / bufferSize).toString()
                 return max.toDouble()
             }
         }
