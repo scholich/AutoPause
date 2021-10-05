@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioFormat
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 //import android.support.v4.app.ActivityCompat
@@ -13,11 +14,14 @@ import android.media.MediaRecorder
 import android.util.Log
 import android.view.View.OnClickListener
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.app.ActivityCompat
 import java.io.IOException
+import android.media.AudioRecord
+import android.os.Handler
+import androidx.appcompat.widget.AppCompatTextView
+
 
 //import android.widget.ProgressBar
 //class MainActivity : AppCompatActivity() {
@@ -47,16 +51,19 @@ import java.io.IOException
 //    }
 //}
 
-
 private const val LOG_TAG = "AudioRecordTest"
 private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
 
 class AudioRecordTest : AppCompatActivity() {
 
+    private var ar: AudioRecord? = null
+    private var minSize = 0
+
     private var fileName: String = ""
 
     private var recordButton: RecordButton? = null
     private var recorder: MediaRecorder? = null
+    private var textVolume: AppCompatTextView? = null
 
     private var playButton: PlayButton? = null
     private var player: MediaPlayer? = null
@@ -108,29 +115,84 @@ class AudioRecordTest : AppCompatActivity() {
         player = null
     }
 
-    private fun startRecording() {
-        recorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-            setOutputFile(fileName)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-
-            try {
-                prepare()
-            } catch (e: IOException) {
-                Log.e(LOG_TAG, "prepare() failed")
+    fun getAmplitude(): Double {
+        if (ar != null) {
+            val buffer = ShortArray(minSize)
+            ar!!.read(buffer, 0, minSize)
+            var max = 0
+            for (s in buffer) {
+                if (Math.abs(s.toInt()) > max) {
+                    max = Math.abs(s.toInt())
+                }
             }
-
-            start()
+            println(max.toDouble())
+            Handler().postDelayed(this::getAmplitude, 200)
+            textVolume?.apply {
+                text = max.toString()
+                return max.toDouble()
+            }
         }
+        return 0.0
+    }
+
+    private fun startRecording() {
+
+        minSize = AudioRecord.getMinBufferSize(
+            8000,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+//             TODO: Consider calling
+//                ActivityCompat#requestPermissions
+//             here to request the missing permissions, and then overriding
+//               public void onRequestPermissionsResult(int requestCode, String[] permissions,
+//                                                      int[] grantResults)
+//             to handle the case where the user grants the permission. See the documentation
+//             for ActivityCompat#requestPermissions for more details.
+            return
+        }
+
+        ar = AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            8000,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+            minSize
+        )
+        ar?.startRecording()
+        getAmplitude()
+
+//        recorder = MediaRecorder().apply {
+//            setAudioSource(MediaRecorder.AudioSource.MIC)
+//            setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
+//            setOutputFile(fileName)
+//            setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
+//
+//            try {
+//                prepare()
+//            } catch (e: IOException) {
+//                Log.e(LOG_TAG, "prepare() failed")
+//            }
+//
+//            start()
+//        }
     }
 
     private fun stopRecording() {
-        recorder?.apply {
-            stop()
-            release()
+//        recorder?.apply {
+//            stop()
+//            release()
+//        }
+//        recorder = null
+        if (ar != null) {
+            ar!!.stop();
         }
-        recorder = null
+        ar = null
     }
 
     internal inner class RecordButton(ctx: Context) : AppCompatButton(ctx) {
@@ -179,17 +241,32 @@ class AudioRecordTest : AppCompatActivity() {
 
         recordButton = RecordButton(this)
         playButton = PlayButton(this)
+        textVolume = AppCompatTextView(this)
         val ll = LinearLayout(this).apply {
-            addView(recordButton,
+            addView(
+                recordButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    0f))
-            addView(playButton,
+                    0f
+                )
+            )
+            addView(
+                playButton,
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    0f))
+                    0f
+                )
+            )
+            addView(
+                textVolume,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    0f
+                )
+            )
         }
         setContentView(ll)
     }
