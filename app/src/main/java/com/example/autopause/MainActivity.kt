@@ -27,9 +27,6 @@ import android.view.KeyEvent
 import android.os.SystemClock
 
 
-
-
-
 //import android.widget.ProgressBar
 //class MainActivity : AppCompatActivity() {
 //
@@ -75,6 +72,7 @@ class AudioRecordTest : AppCompatActivity() {
 
     private var playButton: PlayButton? = null
     private var player: MediaPlayer? = null
+    private var thresholdBrokenCount = 0
 
     // Requesting permission to RECORD_AUDIO
     private var permissionToRecordAccepted = false
@@ -142,29 +140,44 @@ class AudioRecordTest : AppCompatActivity() {
     }
 
     fun getAmplitude(): Double {
-        val bufferSize = 8000 * 5
+        val bufferSize = 8000 * 2
         if (ar != null) {
             val buffer = ShortArray(bufferSize)
             ar!!.read(buffer, 0, bufferSize, AudioRecord.READ_NON_BLOCKING)
             var max = 0
             var sum = 0
+            var sumSquared = 0.0
             for (s in buffer) {
                 if (Math.abs(s.toInt()) > max) {
                     max = Math.abs(s.toInt())
                 }
+                sumSquared += s.toInt() * s.toInt()
                 sum += Math.abs(s.toInt())
             }
-            println(max.toDouble())
-            if (sum.toDouble() / bufferSize > 50) {
-                stopPlaying()
-                Handler().postDelayed(this::getAmplitude, 2000)
-            } else {
-                startPlaying()
-                Handler().postDelayed(this::getAmplitude, 1000)
+            val metric = Math.pow(sumSquared, 0.5) / bufferSize
+            println(metric)
+            if (metric > 4) {
+                if (thresholdBrokenCount < 10) {
+                    thresholdBrokenCount += 1
+                }
+//                Handler().postDelayed(this::getAmplitude, 2000)
             }
+            if (metric < 0.2) {
+                if (thresholdBrokenCount > -3) {
+                    thresholdBrokenCount -= 1
+                }
+//                Handler().postDelayed(this::getAmplitude, 1000)
+            }
+            if (thresholdBrokenCount > 5) {
+                stopPlaying()
+            }
+            if (thresholdBrokenCount < 0) {
+                startPlaying()
+            }
+            Handler().postDelayed(this::getAmplitude, 200)
             textVolume?.apply {
 //                text = max.toString()
-                text = (sum.toDouble() / bufferSize).toString()
+                text = metric.toString()
                 return max.toDouble()
             }
         }
